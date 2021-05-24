@@ -1,0 +1,11 @@
+---
+- name: HOOK update postgres config for installcheck
+  blockinfile:
+    path: /opt/postgres/data/conf.d/9999-override.conf
+    create: yes
+    owner: postgres
+    group: postgres
+    block: |
+      bdr.node1_superuser_dsn = 'host=node1.address dbname=bdrdb user=postgres'
+      bdr.node2_superuser_dsn = 'host=node2.address dbname=bdrdb user=postgres'
+    state: present

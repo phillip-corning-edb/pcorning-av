@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Pass any command line parameter to prevent a full rebuild (only for subsequent runs)
+NO_RESET=$1
+
+eval `ssh-agent`
+ssh-add ~/.ssh/id_ed25519
+
+if [ -z "$NO_RESET" ]; then
+    # Start over
+    echo "START OVER"
+    docker rm -f node1
+    docker rm -f node2
+
+    tpaexec provision .
+    tpaexec deploy .
+else
+    # Just rebuild existing
+    echo "REBUILD EXISTING"
+    tpaexec provision .
+    tpaexec deploy . --skip-tags postgres-clean,build-clean
+fi
+
+exit

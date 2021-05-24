@@ -1,0 +1,88 @@
+---
+architecture: BDR-Simple
+cluster_name: from-source
+cluster_tags: {}
+
+forward_ssh_agent: 'yes'
+
+cluster_vars:
+  bdr_database: bdrdb
+  bdr_node_group: bdrgroup
+  extra_postgres_extensions:
+    - pglogical
+  postgres_coredump_filter: '0xff'
+  postgres_version: '13'
+  postgresql_flavour: postgresql
+  postgres_installation_method: src
+  postgres_git_url: git://git.postgresql.org/git/postgresql.git
+  # postgres_git_ref: REL_13_STABLE
+  postgres_extra_configure_env:
+    CFLAGS: "-O0"
+  preferred_python_version: python3
+  tpa_2q_repositories:
+    - products/bdr3_7/release
+    - products/pglogical3_7/release
+  use_volatile_subscriptions: true
+  install_from_source:
+    - name: pglogical
+      git_repository_url: git@github.com:EnterpriseDB/pglogical.git
+      git_repository_ref: REL3_7_8_rc1
+      source_directory: /opt/postgres/src/pglogical
+      build_directory: /opt/postgres/src/pglogical
+    - name: bdr
+      git_repository_url: git@github.com:EnterpriseDB/bdr.git
+      git_repository_ref: dev/BDR-421
+      source_directory: /opt/postgres/src/bdr
+      build_directory: /opt/postgres/src/bdr
+  packages:
+    Ubuntu:
+      - perl
+      - libxml-generator-perl
+      - libipc-run-perl
+      - libfile-which-perl
+      - libjson-perl
+      - libtest-simple-perl
+      - vim
+      - iputils-ping
+  postgres_configure_opts:
+    - --enable-tap-tests
+    - --enable-debug
+    - --with-openssl
+    - --config-cache
+  postgres_make_command: "make -j2 -s"
+  postgres_build_targets:
+    - "all"
+    - "-C contrib"
+    - "-C src/test/regress"
+    - "-C src/test/perl"          
+    - "-C src/test/isolation"
+  postgres_install_targets:
+    - "install"
+    - "-C contrib install"
+    - "-C src/test/regress install-tests"
+    - "-C src/test/perl install"
+    - "-C src/test/isolation install"
+  unix_socket_directories:
+    - "/var/run/postgresql"
+    - "/tmp"
+
+
+locations:
+- Name: first
+
+instance_defaults:
+  image: tpa/ubuntu:20.04
+  location: 0
+  platform: docker
+  role:
+    - primary
+    - bdr
+  vars:
+    ansible_user: root
+
+instances:
+- Name: node1
+  node: 1       
+
+- Name: node2
+  node: 2

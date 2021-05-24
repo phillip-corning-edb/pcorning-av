@@ -1,0 +1,59 @@
+- name: make installcheck
+  any_errors_fatal: False
+  max_fail_percentage: 100
+  hosts: all
+  vars:
+    postgres_build_dir: /opt/postgres/build/postgres
+
+  tasks:
+
+    - name: Require client host
+      assert:
+        that: client_host is defined
+        msg: "client_host is not defined"
+
+    - block:
+
+      - include_role: name=test tasks_from=prereqs.yml
+        vars:
+          destructive: no
+        tags: always
+
+      - name: Let postgres own {{ postgres_build_dir }} 
+        file:
+          dest: "{{ postgres_build_dir }}"
+          owner: postgres
+          group: postgres
+          recurse: true
+        become: true
+        become_user: root
+
+      - name: Run make installcheck
+        shell: >
+          make installcheck
+        args:
+          chdir: "{{ postgres_build_dir }}"
+        environment:
+          EXTRA_REGRESS_OPTS: "{{ o }}"
+        vars:
+          o: >-
+            --use-existing
+        register: make_installcheck_output
+        become: yes
+        become_user: postgres
+        ignore_errors: true
+
+      - name: Fetch regression.out
+        fetch:
+          src: "{{ postgres_build_dir }}/src/test/regress/regression.out"
+          dest: "{{ output_dir }}/{{ inventory_hostname }}/"
+          flat: yes
+        become: yes
+        become_user: postgres
+
+      - name: Check the outcome of make installcheck
+        assert:
+          that: make_installcheck_output.rc == 0
+
+      when: >
+        inventory_hostname == client_host

@@ -3,13 +3,14 @@
 # Pass any command line parameter to prevent a full rebuild (only for subsequent runs)
 NO_RESET=$1
 
-# Use the current user's GIT SSH key
+# Use the current user's GIT SSH key (must exist!)
 eval `ssh-agent`
 ssh-add ~/.ssh/id_ed25519
 
 # Ensure tpaexec does not destroy the cluster
 export NO_DEPROVISION=1
 
+# Credentials file (not sure if this is needed?)
 export EDB_REPO_CREDENTIALS_FILE="~/EDB_REPO_CREDENTIALS_FILE"
 
 if [ -z "$NO_RESET" ]; then
@@ -23,10 +24,11 @@ if [ -z "$NO_RESET" ]; then
         exit
     fi
 
-    tpaexec deploy . -vvvvvvvv
+    tpaexec deploy .
 else
     # Just rebuild existing
     echo "REBUILD EXISTING"
+
     # tpaexec provision .
     # if [ $? -ne 0 ]; then
     #     exit

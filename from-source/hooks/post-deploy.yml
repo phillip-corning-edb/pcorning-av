@@ -1,5 +1,6 @@
 ---
-- name: Update postgres directory ownership
+# POSTGRES
+- name: Update postgres directory ownership, again
   file:
     path: /opt/postgres
     state: directory
@@ -7,19 +8,109 @@
     group: postgres
     recurse: yes
 
-- name: Update postgres log directory ownership
+- name: Update postgres directory permissions
   file:
-    path: /var/log/postgres
+    path: "{{ item }}"
+    state: directory
+    mode: '0777'
+    recurse: yes
+  loop:
+    - /usr/lib/x86_64-linux-gnu
+    - /usr/lib/postgresql
+    - /usr/share/postgresql
+    - /usr/include/postgresql
+    - /usr/share/locale
+
+- name: postgres create src directory
+  file:
+    path: /opt/postgres/src/postgres
     state: directory
     owner: postgres
     group: postgres
     recurse: yes
 
-- name: Rebuild SRC dirs and run postgres installcheck (ignore all errors)
+- name: create a tmp directory for GIT, to get around ansible GIT bug
+  file:
+    path: /opt/postgres/src_tmp
+    state: directory
+    owner: postgres
+    group: postgres
+    recurse: yes
+
+- name: postgres clone repo
+  environment:
+    TMPDIR: /opt/postgres/src_tmp
+  git:
+    repo: "https://github.com/postgres/postgres.git"
+    dest: "/opt/postgres/src/postgres"
+    version: "REL_13_STABLE"
+    update: yes
+  become: yes
+  become_user: postgres
+
+- name: Build/reinstall postgres from source
   block:
-    # POSTGRES
+    - name: postgres run make
+      make:
+        chdir: "/opt/postgres/src/postgres"
+        params:
+          NUM_THREADS: 2
+  rescue:
     - name: postgres configure
-      shell: "./configure --prefix=/opt/postgres/13 --enable-tap-tests --enable-debug --with-openssl --config-cache CFLAGS=-O0"
+      shell: >
+        ./configure
+        '--prefix=/usr'
+        '--includedir=${prefix}/include'
+        '--mandir=${prefix}/share/man'
+        '--infodir=${prefix}/share/info'
+        '--sysconfdir=/etc'
+        '--localstatedir=/var'
+        '--libdir=${prefix}/lib/x86_64-linux-gnu'
+        '--with-icu'
+        '--with-tcl'
+        '--with-perl'
+        '--with-python'
+        '--with-pam'
+        '--with-openssl'
+        '--with-libxml'
+        '--with-libxslt'
+        'PYTHON=/usr/bin/python3'
+        '--mandir=/usr/share/postgresql/13/man'
+        '--docdir=/usr/share/doc/postgresql-doc-13'
+        '--sysconfdir=/etc/postgresql-common'
+        '--datarootdir=/usr/share/'
+        '--datadir=/usr/share/postgresql/13'
+        '--bindir=/usr/lib/postgresql/13/bin'
+        '--libdir=/usr/lib/x86_64-linux-gnu/'
+        '--libexecdir=/usr/lib/postgresql/'
+        '--includedir=/usr/include/postgresql/'
+        '--with-extra-version= (Ubuntu 13.3-1.pgdg20.04+1)'
+        '--enable-nls'
+        '--enable-thread-safety'
+        '--enable-tap-tests'
+        '--enable-debug'
+        '--enable-dtrace'
+        '--disable-rpath'
+        '--with-uuid=e2fs'
+        '--with-gnu-ld'
+        '--with-pgport=5432'
+        '--with-system-tzdata=/usr/share/zoneinfo'
+        '--with-llvm'
+        'LLVM_CONFIG=/usr/bin/llvm-config-9'
+        'CLANG=/usr/bin/clang-9'
+        '--with-systemd'
+        '--with-selinux'
+        'MKDIR_P=/bin/mkdir -p'
+        'PROVE=/usr/bin/prove'
+        'TAR=/bin/tar'
+        'XSLTPROC=xsltproc --nonet'
+        'CFLAGS=-g -O0 -fstack-protector-strong -Wformat -Werror=format-security -fno-omit-frame-pointer'
+        'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now'
+        '--with-gssapi'
+        '--with-ldap'
+        'build_alias=x86_64-linux-gnu'
+        'CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2'
+        'CXXFLAGS=-g -O0 -fstack-protector-strong -Wformat -Werror=format-security'
       args:
         chdir: "/opt/postgres/src/postgres"
     - name: postgres run make
@@ -27,68 +118,91 @@
         chdir: "/opt/postgres/src/postgres"
         params:
           NUM_THREADS: 2
+  always:
     - name: postgres install
       make:
         chdir: "/opt/postgres/src/postgres"
         target: install
+  become: yes
+  become_user: postgres
 
-    # PGLOGICAL
-    - name: pglogical clean
-      make:
-        chdir: "/opt/postgres/src/pglogical"
-        target: clean
-        params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
+# PGLOGICAL
+- name: Rebuild/reinstall pglogical
+  environment:
+    PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
+  block:
     - name: pglogical make
       make:
         chdir: "/opt/postgres/src/pglogical"
         params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
           NUM_THREADS: 2
+          CFLAGS: "-O0"
+  rescue:
+    - name: pglogical clean
+      make:
+        chdir: "/opt/postgres/src/pglogical"
+        target: clean
+    - name: pglogical make
+      make:
+        chdir: "/opt/postgres/src/pglogical"
+        params:
+          NUM_THREADS: 2
+          CFLAGS: "-O0"
+  always:
     - name: pglogical install
       make:
         chdir: "/opt/postgres/src/pglogical"
         target: install
-        params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
+  become: yes
+  become_user: postgres
 
-    # BDR
-    - name: bdr clean
-      make:
-        chdir: "/opt/postgres/src/bdr"
-        target: clean
-        params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
+# BDR
+- name: Rebuild/reinstall pglogical
+  environment:
+    PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
+  block:
     - name: bdr make
       make:
         chdir: "/opt/postgres/src/bdr"
         params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
           NUM_THREADS: 2
+          CFLAGS: "-O0"
+  rescue:
+    - name: bdr clean
+      make:
+        chdir: "/opt/postgres/src/bdr"
+        target: clean
+    - name: bdr make
+      make:
+        chdir: "/opt/postgres/src/bdr"
+        params:
+          NUM_THREADS: 2
+          CFLAGS: "-O0"
+  always:
     - name: bdr install
       make:
         chdir: "/opt/postgres/src/bdr"
         target: install
-        params:
-          PG_CONFIG: /opt/postgres/13/bin/pg_config
+  become: yes
+  become_user: postgres
 
+- name: Run postgres installcheck (ignore all errors)
+  block:
     # RESTART POSTGRES
     - include_role: name=postgres/restart
       vars:
         postgres_service_end_state: started
 
     # POSTGRES INSTALL CHECK
-    - name: postgres run installcheck (creates regression database)
-      make:
-        chdir: "/opt/postgres/src/postgres"
-        target: installcheck
-
+    # - name: postgres run installcheck (creates regression database)
+    #   make:
+    #     chdir: "/opt/postgres/src/postgres"
+    #     target: installcheck
   become: yes
   become_user: postgres
   ignore_errors: yes
 
-
-- name: HOOK redirect root login to postgres
+- name: Redirect root login to postgres
   blockinfile:
     path: /root/.bashrc
     create: yes
@@ -96,7 +210,21 @@
       sudo su - postgres
     state: present
 
+- name: Copy user's github SSH key files
+  copy:
+    src: '{{item}}'
+    dest: "/var/lib/postgresql/.ssh"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  loop:
+    - "~/.ssh/id_ed25519"
+    - "~/.ssh/id_ed25519.pub"
 
-#TODO: Set GIT REPO KEYS, GIT identity, re-clone repos? (before rebuild?), use "rescue" above to prevent need for configure/clean?
-
-
+- name: Add user's github SSH keys
+  authorized_key:
+    user: postgres
+    state: present
+    key: '{{ item }}'
+  with_file:
+    - "~/.ssh/id_ed25519.pub"

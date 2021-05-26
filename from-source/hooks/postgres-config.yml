@@ -8,3 +8,15 @@
     block: |
       bdr.node1_superuser_dsn = 'host=node1 dbname=bdrdb user=postgres'
       bdr.node2_superuser_dsn = 'host=node2 dbname=bdrdb user=postgres'
+
+- name: Update postgres directory ownership
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    recurse: yes
+  loop:
+    - /opt/postgres
+    - /var/log/postgres
+    - /var/run/postgresql

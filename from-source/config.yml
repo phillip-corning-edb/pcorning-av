@@ -1,15 +1,18 @@
 ---
 architecture: BDR-Simple
-cluster_name: from-source
+cluster_name: fromsource
 cluster_tags: {}
 
 forward_ssh_agent: 'yes'
 
 cluster_vars:
+  postmaster_oom_score_adj: 0
+  postgres_oom_score_adj: 500
   bdr_database: bdrdb
   bdr_node_group: bdrgroup
+  enable_harp: false
   extra_postgres_extensions:
-    - pglogical
+  - pglogical
   postgres_coredump_filter: '0xff'
   postgres_version: '13'
   postgresql_flavour: postgresql
@@ -19,37 +22,67 @@ cluster_vars:
   postgres_extra_configure_env:
     CFLAGS: "-O0"
   preferred_python_version: python3
-  tpa_2q_repositories:
-    - products/bdr3_7/release
-    - products/pglogical3_7/release
   use_volatile_subscriptions: true
   install_from_source:
-    - name: pglogical
-      git_repository_url: git@github.com:EnterpriseDB/pglogical.git
-      git_repository_ref: REL3_7_8_rc1
-      source_directory: /opt/postgres/src/pglogical
-      build_directory: /opt/postgres/src/pglogical
-    - name: bdr
-      git_repository_url: git@github.com:EnterpriseDB/bdr.git
-      git_repository_ref: dev/BDR-421
-      source_directory: /opt/postgres/src/bdr
-      build_directory: /opt/postgres/src/bdr
+  - name: pglogical3
+    git_repository_url: git@github.com:EnterpriseDB/pglogical.git
+    git_repository_ref: REL3_7_8_rc1
+    source_directory: /opt/postgres/src/pglogical
+    build_directory: /opt/postgres/src/pglogical
+  - name: bdr3
+    git_repository_url: git@github.com:EnterpriseDB/bdr.git
+    git_repository_ref: dev/BDR-421
+    source_directory: /opt/postgres/src/bdr
+    build_directory: /opt/postgres/src/bdr
   packages:
+    RedHat:
+      - perl-XML-Generator
+      - perl-IPC-Run
+      - perl-File-Which
+      - perl-JSON
+      - perl-Test-Simple
     Ubuntu:
-      - perl
-      - libxml-generator-perl
-      - libipc-run-perl
-      - libfile-which-perl
-      - libjson-perl
-      - libtest-simple-perl
-      - vim
+      - bison
+      - flex
+      - gettext
       - iputils-ping
-  postgres_configure_opts:
-    - --enable-tap-tests
-    - --enable-debug
-    - --with-openssl
-    - --config-cache
-  postgres_make_command: "make -j2 -s"
+      - libedit-dev
+      - libfile-which-perl
+      - libgettextpo-dev
+      - libipc-run-perl
+      - libjson-perl
+      - libkrb5-dev
+      - libldap-dev
+      - liblocale-msgfmt-perl
+      - libpam-dev
+      - libperl-dev
+      - libpq-dev
+      - libreadline-dev
+      - libselinux-dev
+      - libssl-dev
+      - libsystemd-dev
+      - libtest-simple-perl
+      - libxml2-dev
+      - libxml2-utils
+      - libxml-generator-perl
+      - libxslt-dev
+      - net-tools
+      - perl
+      - pkg-config
+      - python3-dev
+      - systemtap-sdt-dev
+      - tclsh
+      - tcl-dev
+      - uuid-dev
+      - vim
+      - xsltproc
+      - zlib1g-dev
+  # postgres_configure_opts:
+  #   - --enable-tap-tests
+  #   - --enable-debug
+  #   - --with-openssl
+  #   - --config-cache
+  postgres_make_command: "make -j8 -s"
   postgres_build_targets:
     - "all"
     - "-C contrib"
@@ -72,17 +105,19 @@ locations:
 
 instance_defaults:
   image: tpa/ubuntu:20.04
-  location: 0
   platform: docker
+  memory: 4G
+  memory_reservation: 2G
+  shm_size: 256M
+  location: 0
   role:
-    - primary
-    - bdr
+  - primary
+  - bdr
   vars:
     ansible_user: root
 
 instances:
 - Name: node1
-  node: 1       
-
+  node: 1
 - Name: node2
   node: 2

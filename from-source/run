@@ -26,15 +26,10 @@ if [ -z "$NO_RESET" ]; then
 
     tpaexec deploy .
 else
-    # Just rebuild existing
-    echo "REBUILD EXISTING"
+    # Just rebuild existing source
+    echo "REBUILD EXISTING SOURCE"
 
-    # tpaexec provision .
-    # if [ $? -ne 0 ]; then
-    #     exit
-    # fi
-
-    tpaexec deploy . --skip-tags postgres-clean,build-clean
+    tpaexec deploy . --tags postgres-config,post-deploy
 fi
 
 exit

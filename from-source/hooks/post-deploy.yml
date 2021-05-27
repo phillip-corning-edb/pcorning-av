@@ -1,14 +1,38 @@
 ---
+# RSYSLOG
+- name: Edit rsyslog config
+  lineinfile:
+    path: /etc/rsyslog.conf
+    state: absent
+    regexp: '^\{{ item }}\s'
+  loop:
+    - $FileOwner
+    - $FileGroup
+    - $FileCreateMode
+    - $DirCreateMode
+    - $Umask
+    - $PrivDropToUser
+    - $PrivDropToGroup
+
+- name: Restart rsyslog
+  service:
+    name: rsyslog
+    state: restarted
+
 # POSTGRES
 - name: Update postgres directory ownership, again
   file:
-    path: /opt/postgres
+    path: "{{ item }}"
     state: directory
     owner: postgres
     group: postgres
     recurse: yes
+  loop:
+    - /opt/postgres
+    - /var/log/postgres
+    - /var/run/postgresql
 
-- name: Update postgres directory permissions
+- name: Update postgres install directory permissions
   file:
     path: "{{ item }}"
     state: directory
@@ -20,6 +44,7 @@
     - /usr/share/postgresql
     - /usr/include/postgresql
     - /usr/share/locale
+    - /usr/share/doc
 
 - name: postgres create src directory
   file:
@@ -55,6 +80,7 @@
         chdir: "/opt/postgres/src/postgres"
         params:
           NUM_THREADS: 2
+        target: all
   rescue:
     - name: postgres configure
       shell: >
@@ -89,6 +115,8 @@
         '--enable-thread-safety'
         '--enable-tap-tests'
         '--enable-debug'
+        '--enable-cassert'
+        '--config-cache'
         '--enable-dtrace'
         '--disable-rpath'
         '--with-uuid=e2fs'
@@ -104,25 +132,37 @@
         'PROVE=/usr/bin/prove'
         'TAR=/bin/tar'
         'XSLTPROC=xsltproc --nonet'
-        'CFLAGS=-g -O0 -fstack-protector-strong -Wformat -Werror=format-security -fno-omit-frame-pointer'
+        'CFLAGS=-g -O0 -fno-omit-frame-pointer'
         'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now'
         '--with-gssapi'
         '--with-ldap'
         'build_alias=x86_64-linux-gnu'
-        'CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2'
-        'CXXFLAGS=-g -O0 -fstack-protector-strong -Wformat -Werror=format-security'
       args:
         chdir: "/opt/postgres/src/postgres"
+  always:
     - name: postgres run make
       make:
-        chdir: "/opt/postgres/src/postgres"
         params:
           NUM_THREADS: 2
-  always:
+        chdir: "/opt/postgres/src/postgres/{{ item.subdir }}"
+        target: "{{ item.target }}"
+      loop:
+        - { subdir: '', target: 'all' }
+        - { subdir: 'contrib', target: 'all' }
+        - { subdir: 'src/test/regress', target: 'all' }
+        - { subdir: 'src/test/perl', target: 'all' }
+        - { subdir: 'src/test/isolation', target: 'all' }
+
     - name: postgres install
       make:
-        chdir: "/opt/postgres/src/postgres"
-        target: install
+        chdir: "/opt/postgres/src/postgres/{{ item.subdir }}"
+        target: "{{ item.target }}"
+      loop:
+        - { subdir: '', target: 'install' }
+        - { subdir: 'contrib', target: 'install' }
+        - { subdir: 'src/test/regress', target: 'install-tests' }
+        - { subdir: 'src/test/perl', target: 'install' }
+        - { subdir: 'src/test/isolation', target: 'install' }
   become: yes
   become_user: postgres
 
@@ -186,30 +226,21 @@
   become: yes
   become_user: postgres
 
-- name: Run postgres installcheck (ignore all errors)
-  block:
-    # RESTART POSTGRES
-    - include_role: name=postgres/restart
-      vars:
-        postgres_service_end_state: started
+# RESTART POSTGRES
+- include_role: name=postgres/restart
+  vars:
+    postgres_service_end_state: started
 
-    # POSTGRES INSTALL CHECK
-    # - name: postgres run installcheck (creates regression database)
-    #   make:
-    #     chdir: "/opt/postgres/src/postgres"
-    #     target: installcheck
+# POSTGRES INSTALL CHECK
+- name: postgres run installcheck (creates regression database)
+  make:
+    chdir: "/opt/postgres/src/postgres"
+    target: installcheck
+  ignore_errors: yes
   become: yes
   become_user: postgres
-  ignore_errors: yes
 
-- name: Redirect root login to postgres
-  blockinfile:
-    path: /root/.bashrc
-    create: yes
-    block: |
-      sudo su - postgres
-    state: present
-
+# SETUP GITHUB ACCESS
 - name: Copy user's github SSH key files
   copy:
     src: '{{item}}'
@@ -228,3 +259,22 @@
     key: '{{ item }}'
   with_file:
     - "~/.ssh/id_ed25519.pub"
+
+# SIMPLIFY LOGIN
+- name: Redirect root login to postgres
+  blockinfile:
+    path: /root/.bashrc
+    create: yes
+    block: |
+      sudo su - postgres
+    state: present
+
+- name: Automatically change postgres default dir to source
+  blockinfile:
+    path: /var/lib/postgresql/.bashrc
+    create: yes
+    block: |
+      cd /opt/postgres/src
+    state: present
+    owner: postgres
+    group: postgres

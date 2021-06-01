@@ -24,12 +24,12 @@ cluster_vars:
   install_from_source:
   - name: pglogical3
     git_repository_url: git@github.com:EnterpriseDB/pglogical.git
-    git_repository_ref: REL3_7_8_rc1
+    git_repository_ref: REL3_7_8
     source_directory: /opt/postgres/src/pglogical
     build_directory: /opt/postgres/src/pglogical
   - name: bdr3
     git_repository_url: git@github.com:EnterpriseDB/bdr.git
-    git_repository_ref: dev/BDR-867
+    git_repository_ref: REL3_7_8
     source_directory: /opt/postgres/src/bdr
     build_directory: /opt/postgres/src/bdr
   packages:
@@ -76,6 +76,7 @@ cluster_vars:
       - vim
       - xsltproc
       - zlib1g-dev
+      - software-properties-common
   # postgres_installation_method: src
   # postgres_git_url: git://git.postgresql.org/git/postgresql.git
   # postgres_git_ref: REL_13_3

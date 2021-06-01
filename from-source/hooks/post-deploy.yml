@@ -55,7 +55,7 @@
 
 - name: Build/reinstall postgres from source
   block:
-    - name: postgres run make
+    - name: postgres run make (1)
       make:
         chdir: "/opt/postgres/src/postgres"
         params:
@@ -120,7 +120,7 @@
       args:
         chdir: "/opt/postgres/src/postgres"
   always:
-    - name: postgres run make
+    - name: postgres run make (2)
       make:
         params:
           NUM_THREADS: 4
@@ -151,7 +151,7 @@
   environment:
     PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
   block:
-    - name: pglogical make
+    - name: pglogical make (1)
       make:
         chdir: "/opt/postgres/src/pglogical"
         params:
@@ -162,7 +162,7 @@
       make:
         chdir: "/opt/postgres/src/pglogical"
         target: clean
-    - name: pglogical make
+    - name: pglogical make (2)
       make:
         chdir: "/opt/postgres/src/pglogical"
         params:
@@ -175,13 +175,14 @@
         target: install
   become: yes
   become_user: postgres
+  ignore_errors: yes
 
 # BDR
-- name: Rebuild/reinstall pglogical
+- name: Rebuild/reinstall bdr
   environment:
     PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
   block:
-    - name: bdr make
+    - name: bdr make (1)
       make:
         chdir: "/opt/postgres/src/bdr"
         params:
@@ -192,7 +193,7 @@
       make:
         chdir: "/opt/postgres/src/bdr"
         target: clean
-    - name: bdr make
+    - name: bdr make (2)
       make:
         chdir: "/opt/postgres/src/bdr"
         params:
@@ -205,6 +206,7 @@
         target: install
   become: yes
   become_user: postgres
+  ignore_errors: yes
 
 # RESTART POSTGRES
 - include_role: name=postgres/restart
@@ -220,7 +222,7 @@
   become: yes
   become_user: postgres
 
-# SETUP GITHUB ACCESS
+# SETUP GITHUB ACCESS AND BRANCHES
 - name: Copy user's github SSH key files
   copy:
     src: '{{item}}'
@@ -248,6 +250,21 @@
     git config --global core.editor vim
   args:
     chdir: "/opt/postgres/src/bdr"
+  become: yes
+  become_user: postgres
+
+- name: Fix GIT remote branches (messed up if a tag was used in config.yml)
+  block:
+    - name: Fix bdr GIT remote branches
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+      args:
+        chdir: "/opt/postgres/src/bdr"
+    - name: Fix pglogical GIT remote branches
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+      args:
+        chdir: "/opt/postgres/src/pglogical"
   become: yes
   become_user: postgres
 

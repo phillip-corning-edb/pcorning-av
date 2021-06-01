@@ -1,25 +1,4 @@
 ---
-# RSYSLOG
-- name: Edit rsyslog config
-  lineinfile:
-    path: /etc/rsyslog.conf
-    state: absent
-    regexp: '^\{{ item }}\s'
-  loop:
-    - $FileOwner
-    - $FileGroup
-    - $FileCreateMode
-    - $DirCreateMode
-    - $Umask
-    - $PrivDropToUser
-    - $PrivDropToGroup
-
-- name: Restart rsyslog
-  service:
-    name: rsyslog
-    state: restarted
-
-# POSTGRES
 - name: Update postgres directory ownership, again
   file:
     path: "{{ item }}"
@@ -62,6 +41,7 @@
     group: postgres
     recurse: yes
 
+# POSTGRES
 - name: postgres clone repo
   environment:
     TMPDIR: /opt/postgres/src_tmp
@@ -79,7 +59,7 @@
       make:
         chdir: "/opt/postgres/src/postgres"
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
         target: all
   rescue:
     - name: postgres configure
@@ -143,7 +123,7 @@
     - name: postgres run make
       make:
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
         chdir: "/opt/postgres/src/postgres/{{ item.subdir }}"
         target: "{{ item.target }}"
       loop:
@@ -175,7 +155,7 @@
       make:
         chdir: "/opt/postgres/src/pglogical"
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
           CFLAGS: "-O0"
   rescue:
     - name: pglogical clean
@@ -186,7 +166,7 @@
       make:
         chdir: "/opt/postgres/src/pglogical"
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
           CFLAGS: "-O0"
   always:
     - name: pglogical install
@@ -205,7 +185,7 @@
       make:
         chdir: "/opt/postgres/src/bdr"
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
           CFLAGS: "-O0"
   rescue:
     - name: bdr clean
@@ -216,7 +196,7 @@
       make:
         chdir: "/opt/postgres/src/bdr"
         params:
-          NUM_THREADS: 2
+          NUM_THREADS: 4
           CFLAGS: "-O0"
   always:
     - name: bdr install
@@ -260,6 +240,18 @@
   with_file:
     - "~/.ssh/id_ed25519.pub"
 
+- name: Setup GIT user
+  shell: |
+    git config --global pull.rebase true
+    git config --global user.name "Phillip Corning"
+    git config --global user.email "phillip.corning@enterprisedb.com"
+    git config --global core.editor vim
+  args:
+    chdir: "/opt/postgres/src/bdr"
+  become: yes
+  become_user: postgres
+
+
 # SIMPLIFY LOGIN
 - name: Redirect root login to postgres
   blockinfile:
@@ -268,13 +260,3 @@
     block: |
       sudo su - postgres
     state: present
-
-- name: Automatically change postgres default dir to source
-  blockinfile:
-    path: /var/lib/postgresql/.bashrc
-    create: yes
-    block: |
-      cd /opt/postgres/src
-    state: present
-    owner: postgres
-    group: postgres

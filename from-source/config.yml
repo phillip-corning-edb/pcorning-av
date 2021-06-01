@@ -86,7 +86,7 @@ cluster_vars:
   #   - --enable-debug
   #   - --with-openssl
   #   - --config-cache
-  # postgres_make_command: "make -j8 -s"
+  # postgres_make_command: "make -j4 -s"
   # postgres_build_targets:
   #   - "all"
   #   - "-C contrib"

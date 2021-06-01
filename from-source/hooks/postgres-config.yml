@@ -8,14 +8,6 @@
     block: |
       bdr.node1_superuser_dsn = 'host=node1 dbname=bdrdb user=postgres'
       bdr.node2_superuser_dsn = 'host=node2 dbname=bdrdb user=postgres'
-      log_destination = 'syslog'
-      logging_collector = 'on'
-      log_directory = '/var/log/postgres'
-      log_filename = 'postgresql.log'
-      log_statement = 'all'
-      log_min_messages = 'DEBUG5'
-      log_min_error_statement = 'DEBUG5'
-      client_min_messages = 'DEBUG5'
 
 - name: Update postgres directory ownership
   file:

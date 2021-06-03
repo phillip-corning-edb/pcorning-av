@@ -1,5 +1,5 @@
 ---
-- name: Update postgres config for installcheck
+- name: Update postgres config for installcheck and query logging
   blockinfile:
     path: /opt/postgres/data/conf.d/9999-override.conf
     create: yes
@@ -21,3 +21,16 @@
     - /opt/postgres
     - /var/log/postgres
     - /var/run/postgresql
+
+- name: Update rsyslog config (so postgres logging works)
+  blockinfile:
+    path: /etc/rsyslog.d/99-override.conf
+    create: yes
+    block: |
+      $PrivDropToUser postgres
+      $PrivDropToGroup postgres
+
+- name: Restart rsyslog service
+  service:
+    name: rsyslog
+    state: restarted

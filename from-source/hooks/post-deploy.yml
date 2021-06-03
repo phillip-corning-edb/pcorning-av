@@ -1,4 +1,26 @@
 ---
+- name: Define development information
+  set_fact:
+    postgres_dev:
+      git_repo: "git://git.postgresql.org/git/postgresql.git"
+      git_ref: "REL_13_STABLE"
+      src_dir: "/opt/postgres/src/postgres"
+    pglogical_dev:
+      git_repo: "git@github.com:EnterpriseDB/pglogical.git"
+      git_ref: "master"
+      src_dir: "/opt/postgres/src/pglogical"
+    bdr_dev:
+      git_repo: "git@github.com:EnterpriseDB/bdr.git"
+      git_ref: "remotes/origin/dev/BDR-866"
+      src_dir: "/opt/postgres/src/bdr"
+    git_tmp: "/opt/postgres/src_tmp"
+    make_opt:
+      num_threads: 8
+    user_info:
+      name: "Phillip Corning"
+      email: "phillip.corning@enterprisedb.com"
+    run_pg_installcheck: yes
+
 - name: Update postgres directory ownership, again
   file:
     path: "{{ item }}"
@@ -27,28 +49,77 @@
 
 - name: postgres create src directory
   file:
-    path: /opt/postgres/src/postgres
+    path: "{{ postgres_dev.src_dir }}"
     state: directory
     owner: postgres
     group: postgres
     recurse: yes
 
+
+# SETUP GITHUB ACCESS AND BRANCHES
+- name: Copy user's github SSH key files
+  copy:
+    src: '{{item}}'
+    dest: "/var/lib/postgresql/.ssh"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  loop:
+    - "~/.ssh/id_ed25519"
+    - "~/.ssh/id_ed25519.pub"
+
+- name: Add user's github SSH keys
+  authorized_key:
+    user: postgres
+    state: present
+    key: '{{ item }}'
+  with_file:
+    - "~/.ssh/id_ed25519.pub"
+
+- name: Setup GIT user
+  shell: |
+    git config --global pull.rebase true
+    git config --global user.name "{{ user_info.name }}"
+    git config --global user.email "{{ user_info.email }}"
+    git config --global core.editor vim
+  args:
+    chdir: "{{ bdr_dev.src_dir }}"
+  become: yes
+  become_user: postgres
+
+- name: Fix GIT remote branches (messed up if a tag was used in config.yml)
+  block:
+    - name: Fix pglogical GIT remote branches
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+      args:
+        chdir: "{{ pglogical_dev.src_dir }}"
+    - name: Fix bdr GIT remote branches
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+      args:
+        chdir: "{{ bdr_dev.src_dir }}"
+  become: yes
+  become_user: postgres
+
 - name: create a tmp directory for GIT, to get around ansible GIT bug
   file:
-    path: /opt/postgres/src_tmp
+    path: "{{ git_tmp }}"
     state: directory
     owner: postgres
     group: postgres
     recurse: yes
+
 
 # POSTGRES
 - name: postgres clone repo
   environment:
-    TMPDIR: /opt/postgres/src_tmp
+    TMPDIR: "{{ git_tmp }}"
   git:
-    repo: "https://github.com/postgres/postgres.git"
-    dest: "/opt/postgres/src/postgres"
-    version: "REL_13_STABLE"
+    repo: "{{ postgres_dev.git_repo }}"
+    dest: "{{ postgres_dev.src_dir }}"
+    version: "{{ postgres_dev.git_ref }}"
+    accept_hostkey: yes
     update: yes
   become: yes
   become_user: postgres
@@ -57,9 +128,9 @@
   block:
     - name: postgres run make (1)
       make:
-        chdir: "/opt/postgres/src/postgres"
+        chdir: "{{ postgres_dev.src_dir }}"
         params:
-          NUM_THREADS: 4
+          NUM_THREADS: "{{ make_opt.num_threads }}"
         target: all
   rescue:
     - name: postgres configure
@@ -118,13 +189,13 @@
         '--with-ldap'
         'build_alias=x86_64-linux-gnu'
       args:
-        chdir: "/opt/postgres/src/postgres"
+        chdir: "{{ postgres_dev.src_dir }}"
   always:
     - name: postgres run make (2)
       make:
         params:
-          NUM_THREADS: 4
-        chdir: "/opt/postgres/src/postgres/{{ item.subdir }}"
+          NUM_THREADS:  "{{ make_opt.num_threads }}"
+        chdir: "{{ postgres_dev.src_dir }}/{{ item.subdir }}"
         target: "{{ item.target }}"
       loop:
         - { subdir: '', target: 'all' }
@@ -135,7 +206,7 @@
 
     - name: postgres install
       make:
-        chdir: "/opt/postgres/src/postgres/{{ item.subdir }}"
+        chdir: "{{ postgres_dev.src_dir }}/{{ item.subdir }}"
         target: "{{ item.target }}"
       loop:
         - { subdir: '', target: 'install' }
@@ -147,62 +218,86 @@
   become_user: postgres
 
 # PGLOGICAL
+- name: pglogical switch branch
+  environment:
+    TMPDIR: "{{ git_tmp }}"
+  git:
+    repo: "{{ pglogical_dev.git_repo }}"
+    dest: "{{ pglogical_dev.src_dir }}"
+    version: "{{ pglogical_dev.git_ref }}"
+    accept_hostkey: yes
+    update: yes
+  become: yes
+  become_user: postgres
+
 - name: Rebuild/reinstall pglogical
   environment:
     PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
   block:
     - name: pglogical make (1)
       make:
-        chdir: "/opt/postgres/src/pglogical"
+        chdir: "{{ pglogical_dev.src_dir }}"
         params:
-          NUM_THREADS: 4
+          NUM_THREADS: "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   rescue:
     - name: pglogical clean
       make:
-        chdir: "/opt/postgres/src/pglogical"
+        chdir: "{{ pglogical_dev.src_dir }}"
         target: clean
     - name: pglogical make (2)
       make:
-        chdir: "/opt/postgres/src/pglogical"
+        chdir: "{{ pglogical_dev.src_dir }}"
         params:
-          NUM_THREADS: 4
+          NUM_THREADS: "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   always:
     - name: pglogical install
       make:
-        chdir: "/opt/postgres/src/pglogical"
+        chdir: "{{ pglogical_dev.src_dir }}"
         target: install
   become: yes
   become_user: postgres
   ignore_errors: yes
 
 # BDR
+- name: BDR switch branch
+  environment:
+    TMPDIR: "{{ git_tmp }}"
+  git:
+    repo: "{{ bdr_dev.git_repo }}"
+    dest: "{{ bdr_dev.src_dir }}"
+    version: "{{ bdr_dev.git_ref }}"
+    accept_hostkey: yes
+    update: yes
+  become: yes
+  become_user: postgres
+
 - name: Rebuild/reinstall bdr
   environment:
     PG_CONFIG: /usr/lib/postgresql/13/bin/pg_config
   block:
     - name: bdr make (1)
       make:
-        chdir: "/opt/postgres/src/bdr"
+        chdir: "{{ bdr_dev.src_dir }}"
         params:
-          NUM_THREADS: 4
+          NUM_THREADS: "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   rescue:
     - name: bdr clean
       make:
-        chdir: "/opt/postgres/src/bdr"
+        chdir: "{{ bdr_dev.src_dir }}"
         target: clean
     - name: bdr make (2)
       make:
-        chdir: "/opt/postgres/src/bdr"
+        chdir: "{{ bdr_dev.src_dir }}"
         params:
-          NUM_THREADS: 4
+          NUM_THREADS: "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   always:
     - name: bdr install
       make:
-        chdir: "/opt/postgres/src/bdr"
+        chdir: "{{ bdr_dev.src_dir }}"
         target: install
   become: yes
   become_user: postgres
@@ -216,58 +311,12 @@
 # POSTGRES INSTALL CHECK
 - name: postgres run installcheck (creates regression database)
   make:
-    chdir: "/opt/postgres/src/postgres"
+    chdir: "{{ postgres_dev.src_dir }}"
     target: installcheck
   ignore_errors: yes
   become: yes
   become_user: postgres
-
-# SETUP GITHUB ACCESS AND BRANCHES
-- name: Copy user's github SSH key files
-  copy:
-    src: '{{item}}'
-    dest: "/var/lib/postgresql/.ssh"
-    owner: postgres
-    group: postgres
-    mode: 0600
-  loop:
-    - "~/.ssh/id_ed25519"
-    - "~/.ssh/id_ed25519.pub"
-
-- name: Add user's github SSH keys
-  authorized_key:
-    user: postgres
-    state: present
-    key: '{{ item }}'
-  with_file:
-    - "~/.ssh/id_ed25519.pub"
-
-- name: Setup GIT user
-  shell: |
-    git config --global pull.rebase true
-    git config --global user.name "Phillip Corning"
-    git config --global user.email "phillip.corning@enterprisedb.com"
-    git config --global core.editor vim
-  args:
-    chdir: "/opt/postgres/src/bdr"
-  become: yes
-  become_user: postgres
-
-- name: Fix GIT remote branches (messed up if a tag was used in config.yml)
-  block:
-    - name: Fix bdr GIT remote branches
-      shell: |
-        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      args:
-        chdir: "/opt/postgres/src/bdr"
-    - name: Fix pglogical GIT remote branches
-      shell: |
-        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      args:
-        chdir: "/opt/postgres/src/pglogical"
-  become: yes
-  become_user: postgres
-
+  when: run_pg_installcheck
 
 # SIMPLIFY LOGIN
 - name: Redirect root login to postgres

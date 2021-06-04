@@ -11,11 +11,12 @@
       src_dir: "/opt/postgres/src/pglogical"
     bdr_dev:
       git_repo: "git@github.com:EnterpriseDB/bdr.git"
-      git_ref: "remotes/origin/dev/BDR-866"
+      git_ref_full: "remotes/origin/dev/BDR-866"
+      git_ref: "dev/BDR-866"
       src_dir: "/opt/postgres/src/bdr"
     git_tmp: "/opt/postgres/src_tmp"
     make_opt:
-      num_threads: 8
+      num_threads: 16
     user_info:
       name: "Phillip Corning"
       email: "phillip.corning@enterprisedb.com"
@@ -87,21 +88,6 @@
   become: yes
   become_user: postgres
 
-- name: Fix GIT remote branches (messed up if a tag was used in config.yml)
-  block:
-    - name: Fix pglogical GIT remote branches
-      shell: |
-        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      args:
-        chdir: "{{ pglogical_dev.src_dir }}"
-    - name: Fix bdr GIT remote branches
-      shell: |
-        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-      args:
-        chdir: "{{ bdr_dev.src_dir }}"
-  become: yes
-  become_user: postgres
-
 - name: create a tmp directory for GIT, to get around ansible GIT bug
   file:
     path: "{{ git_tmp }}"
@@ -130,7 +116,7 @@
       make:
         chdir: "{{ postgres_dev.src_dir }}"
         params:
-          NUM_THREADS: "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
         target: all
   rescue:
     - name: postgres configure
@@ -216,17 +202,26 @@
         - { subdir: 'src/test/isolation', target: 'install' }
   become: yes
   become_user: postgres
+  when: true
+
 
 # PGLOGICAL
-- name: pglogical switch branch
-  environment:
-    TMPDIR: "{{ git_tmp }}"
-  git:
-    repo: "{{ pglogical_dev.git_repo }}"
-    dest: "{{ pglogical_dev.src_dir }}"
-    version: "{{ pglogical_dev.git_ref }}"
-    accept_hostkey: yes
-    update: yes
+- name: pglogical fix/switch branch
+  block:
+    - name: Fix pglogical GIT remote branch
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*";
+      args:
+        chdir: "{{ pglogical_dev.src_dir }}"
+    - name: pglogical switch branch
+      environment:
+        TMPDIR: "{{ git_tmp }}"
+      git:
+        repo: "{{ pglogical_dev.git_repo }}"
+        dest: "{{ pglogical_dev.src_dir }}"
+        version: "{{ pglogical_dev.git_ref }}"
+        accept_hostkey: yes
+        update: yes
   become: yes
   become_user: postgres
 
@@ -238,7 +233,7 @@
       make:
         chdir: "{{ pglogical_dev.src_dir }}"
         params:
-          NUM_THREADS: "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   rescue:
     - name: pglogical clean
@@ -249,7 +244,7 @@
       make:
         chdir: "{{ pglogical_dev.src_dir }}"
         params:
-          NUM_THREADS: "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   always:
     - name: pglogical install
@@ -260,16 +255,24 @@
   become_user: postgres
   ignore_errors: yes
 
+
 # BDR
-- name: BDR switch branch
-  environment:
-    TMPDIR: "{{ git_tmp }}"
-  git:
-    repo: "{{ bdr_dev.git_repo }}"
-    dest: "{{ bdr_dev.src_dir }}"
-    version: "{{ bdr_dev.git_ref }}"
-    accept_hostkey: yes
-    update: yes
+- name: BDR fix/switch branch
+  block:
+    - name: Fix bdr GIT remote branch
+      shell: |
+        git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*";
+      args:
+        chdir: "{{ bdr_dev.src_dir }}"
+    - name: bdr switch branch
+      environment:
+        TMPDIR: "{{ git_tmp }}"
+      git:
+        repo: "{{ bdr_dev.git_repo }}"
+        dest: "{{ bdr_dev.src_dir }}"
+        version: "{{ bdr_dev.git_ref }}"
+        accept_hostkey: yes
+        update: yes
   become: yes
   become_user: postgres
 
@@ -281,7 +284,7 @@
       make:
         chdir: "{{ bdr_dev.src_dir }}"
         params:
-          NUM_THREADS: "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   rescue:
     - name: bdr clean
@@ -292,7 +295,7 @@
       make:
         chdir: "{{ bdr_dev.src_dir }}"
         params:
-          NUM_THREADS: "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
           CFLAGS: "-O0"
   always:
     - name: bdr install
@@ -302,6 +305,12 @@
   become: yes
   become_user: postgres
   ignore_errors: yes
+
+- name: DEBUG FAIL
+  fail:
+    msg: DEBUG FAIL
+  when: false
+
 
 # RESTART POSTGRES
 - include_role: name=postgres/restart

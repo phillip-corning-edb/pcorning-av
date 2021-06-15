@@ -1,28 +1,29 @@
 ---
 - name: Define development information
   set_fact:
+    user_info:
+      name: "Phillip Corning"
+      email: "phillip.corning@enterprisedb.com"
     postgres_dev:
       git_repo: "git://git.postgresql.org/git/postgresql.git"
       git_ref: "REL_13_STABLE"
       src_dir: "/opt/postgres/src/postgres"
     pglogical_dev:
       git_repo: "git@github.com:EnterpriseDB/pglogical.git"
-      git_ref: "master"
+      git_ref: "REL3_7_STABLE"
       src_dir: "/opt/postgres/src/pglogical"
     bdr_dev:
       git_repo: "git@github.com:EnterpriseDB/bdr.git"
-      git_ref_full: "remotes/origin/dev/BDR-866"
-      git_ref: "dev/BDR-866"
+      git_ref: "REL3_7_STABLE"
       src_dir: "/opt/postgres/src/bdr"
     git_tmp: "/opt/postgres/src_tmp"
     make_opt:
       num_threads: 16
-    user_info:
-      name: "Phillip Corning"
-      email: "phillip.corning@enterprisedb.com"
     run_pg_installcheck: yes
 
-- name: Update postgres directory ownership, again
+
+# ENSURE THE POSTGRES USER CAN BUILD/INSTALL/RUN POSTGRES
+- name: Ensure postgres directory ownership is set
   file:
     path: "{{ item }}"
     state: directory
@@ -47,14 +48,6 @@
     - /usr/include/postgresql
     - /usr/share/locale
     - /usr/share/doc
-
-- name: postgres create src directory
-  file:
-    path: "{{ postgres_dev.src_dir }}"
-    state: directory
-    owner: postgres
-    group: postgres
-    recurse: yes
 
 
 # SETUP GITHUB ACCESS AND BRANCHES
@@ -88,7 +81,7 @@
   become: yes
   become_user: postgres
 
-- name: create a tmp directory for GIT, to get around ansible GIT bug
+- name: Create a tmp directory for GIT, to get around ansible GIT bug
   file:
     path: "{{ git_tmp }}"
     state: directory
@@ -98,7 +91,15 @@
 
 
 # POSTGRES
-- name: postgres clone repo
+- name: postgres create source directory
+  file:
+    path: "{{ postgres_dev.src_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    recurse: yes
+
+- name: postgres clone GIT repo
   environment:
     TMPDIR: "{{ git_tmp }}"
   git:
@@ -180,7 +181,7 @@
     - name: postgres run make (2)
       make:
         params:
-          NUM_THREADS:  "{{ make_opt.num_threads }}"
+          '--jobs': "{{ make_opt.num_threads }}"
         chdir: "{{ postgres_dev.src_dir }}/{{ item.subdir }}"
         target: "{{ item.target }}"
       loop:
@@ -253,7 +254,6 @@
         target: install
   become: yes
   become_user: postgres
-  ignore_errors: yes
 
 
 # BDR
@@ -304,12 +304,6 @@
         target: install
   become: yes
   become_user: postgres
-  ignore_errors: yes
-
-- name: DEBUG FAIL
-  fail:
-    msg: DEBUG FAIL
-  when: false
 
 
 # RESTART POSTGRES
@@ -317,15 +311,36 @@
   vars:
     postgres_service_end_state: started
 
+
 # POSTGRES INSTALL CHECK
-- name: postgres run installcheck (creates regression database)
-  make:
-    chdir: "{{ postgres_dev.src_dir }}"
-    target: installcheck
-  ignore_errors: yes
-  become: yes
-  become_user: postgres
-  when: run_pg_installcheck
+- name: Prepare postgres and DBs for installcheck tests
+  block:
+    - name: postgres run installcheck (creates regression database, ignore errors)
+      make:
+        chdir: "{{ postgres_dev.src_dir }}"
+        target: installcheck
+      ignore_errors: yes
+      become: yes
+      become_user: postgres
+      when: run_pg_installcheck
+    - name: NOTE
+      debug:
+        msg: "Note: postgres installcheck errors above can be ignored"
+      when: run_pg_installcheck
+
+
+# PRE-CONFIGURE VSCODE
+- name: Pre-configure vscode
+  copy:
+    src: "{{ cluster_dir }}/files/vscode_config/{{ item.local_path }}"
+    dest: "/opt/postgres/src/{{ item.remote_path }}"
+    mode: '0777'
+  loop:
+    - { local_path: 'NODEx_workspace.code-workspace', remote_path: '{{ inventory_hostname|upper }}_workspace.code-workspace' }
+    - { local_path: 'launch.json', remote_path: '.vscode/' }
+    - { local_path: 'tasks.json', remote_path: '.vscode/' }
+  when: true
+
 
 # SIMPLIFY LOGIN
 - name: Redirect root login to postgres

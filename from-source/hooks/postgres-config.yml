@@ -22,7 +22,7 @@
     - /var/log/postgres
     - /var/run/postgresql
 
-- name: Update rsyslog config (so postgres logging works)
+- name: Update rsyslog config to enable postgres logging
   blockinfile:
     path: /etc/rsyslog.d/99-override.conf
     create: yes

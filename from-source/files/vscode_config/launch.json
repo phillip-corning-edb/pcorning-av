@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build and debug BDR",
+            "type": "cppdbg",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "program": "/usr/lib/postgresql/13/bin/postgres",
+            "additionalSOLibSearchPath": "/usr/lib/postgresql/13/lib",
+            "args": [],
+            "stopAtEntry": false,
+            "stopAtConnect": true,
+            "cwd": "/opt/postgres/src/bdr",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "ignore SIGUSR1 signal",
+                    "text": "handle SIGUSR1 nostop pass"
+                },
+                {
+                    "description": "ignore SIGUSR2 signal",
+                    "text": "handle SIGUSR2 nostop pass"
+                }
+            ],
+            // "preLaunchTask": "bdr-entry",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

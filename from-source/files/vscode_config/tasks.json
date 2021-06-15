@@ -1,0 +1,37 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "bdr-entry",
+            "type": "shell",
+            "command": "echo",
+            "args": [
+                "BUILD_DONE"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": ["bdr-build", "bdr-install", "postgres-restart"],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "postgres-restart",
+            "type": "shell",
+            "command": "su -l postgres -c 'pg_ctl restart'",
+            "group": "build"
+        },
+        {
+            "label": "bdr-install",
+            "type": "shell",
+            "command": "su -l postgres -c 'make install --directory=/opt/postgres/src/bdr'",
+            "group": "build"
+        },
+        {
+            "label": "bdr-build",
+            "type": "shell",
+            "command": "su -l postgres -c 'make --directory=/opt/postgres/src/bdr'",
+            "group": "build"
+        },
+    ],
+}

@@ -10,9 +10,6 @@ ssh-add ~/.ssh/id_ed25519
 # Ensure tpaexec does not destroy the cluster
 export NO_DEPROVISION=1
 
-# Credentials file (not sure if this is needed?)
-export EDB_REPO_CREDENTIALS_FILE="~/EDB_REPO_CREDENTIALS_FILE"
-
 if [ -z "$NO_RESET" ]; then
     # Start over
     echo "START OVER"
@@ -29,7 +26,7 @@ else
     # Just rebuild existing source
     echo "REBUILD EXISTING SOURCE"
 
-    tpaexec deploy . --tags postgres-config,post-deploy
+    tpaexec deploy . --tags post-deploy
 fi
 
 exit

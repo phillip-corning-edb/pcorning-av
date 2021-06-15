@@ -5,7 +5,7 @@ Docker-based cluster with 2 Nodes.
 After `./run` is executed it will be setup for BDR development and fully functional for BDR `make installcheck` tests.
 
 **Before executing the `run` script:**
-- The `~/.ssh/id_ed25519` GITHUB SSH key must be present in your user's home directory
+- The `~/.ssh/id_ed25519` github ssh key must be present in your user's home directory
 - The `TPA_2Q_SUBSCRIPTION_TOKEN` must be set in your user's environment
 - Edit the variables at the top of `hooks/post-deploy.yml`:
     - Set `user_info.name` and `user_info.email` for your GIT user
@@ -17,7 +17,6 @@ After `./run` is executed it will be setup for BDR development and fully functio
     - No arguments = Full cluster build (will destroy current cluster if already present)
     - Any argument = Rebuild (excutes `hooks/post-deploy.yml` only)
 - Connect to nodes with `ssh -F ssh_config node*`
-- Configure vscode to use the `ssh_config` file to connect to node(s)
 - All source is located in the `/opt/postgres/src` directory
 - (Optional) Postgres installcheck is run during cluster setup to enable the BDR check, installcheck, and installcheck_local "make" options (Errors are ignored as they don't matter)
 - The `/opt/postgres/src/NODE*_workspace.code-workspace` vscode Workspace is pre-configured to edit/build/install BDR (debugging does not currently work)

@@ -7,10 +7,11 @@ After `./run` is executed it will be setup for BDR development and fully functio
 **Before executing the `run` script:**
 - The `~/.ssh/id_ed25519` github ssh key must be present in your user's home directory
 - The `TPA_2Q_SUBSCRIPTION_TOKEN` must be set in your user's environment
-- Edit the variables at the top of `hooks/post-deploy.yml`:
+- Edit the JSON config in the `run` script:
     - Set `user_info.name` and `user_info.email` for your GIT user
-    - Set `*.git_ref` values to the desired environment GIT branches
+    - Set `dev_branches` values to the desired environment GIT branches
     - Set `run_pg_installcheck` to enable/disable postgres installcheck
+    - Verify `make_num_threads` is set appropriately for your machine's CPU cores
 
 **Use Notes:**
 - `./run`
@@ -20,11 +21,8 @@ After `./run` is executed it will be setup for BDR development and fully functio
 - All source is located in the `/opt/postgres/src` directory
 - (Optional) Postgres installcheck is run during cluster setup to enable the BDR check, installcheck, and installcheck_local "make" options (Errors are ignored as they don't matter)
 - The `/opt/postgres/src/NODE*_workspace.code-workspace` vscode Workspace is pre-configured to edit/build/install BDR (debugging does not currently work)
-- Sometimes (Ubuntu) the `sysstat` service restart fails during `./run`, execute again if this happens
+- Sometimes (Ubuntu) the `sysstat` service restart fails during `./run`, execute `./run` again if this happens
 
 **TODO:**
-- `hooks/post-deploy.yml`
-    - `make_opt.num_threads` doesn't seem to work
-    - Move the user/branch variables somewhere else, so they don't need to be edited
 - vscode: Get BDR debugging to work
 - sysstat: Why does this fail sometimes?

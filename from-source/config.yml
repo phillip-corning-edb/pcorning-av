@@ -18,6 +18,7 @@ cluster_vars:
   extra_postgres_extensions:
     - pglogical
   postgres_coredump_filter: '0xff'
+  postgres_home: "/opt/postgres/src"
   extra_bashrc_lines:
     - export SRC="/opt/postgres/src"
     - echo "" && echo "SOURCE DIRECTORY - ${SRC}" && echo ""
@@ -28,6 +29,8 @@ cluster_vars:
   preferred_python_version: python3
   use_volatile_subscriptions: true
 
+  # The tpaexec "src" method doesn't seem to work at this time.
+  # We'll pull in the postgres source in hooks/post-deplay.yml instead.
   install_from_source:
   - name: pglogical3
     git_repository_url: git@github.com:EnterpriseDB/pglogical.git
@@ -41,12 +44,6 @@ cluster_vars:
     build_directory: /opt/postgres/src/bdr
 
   packages:
-    RedHat:
-      - perl-XML-Generator
-      - perl-IPC-Run
-      - perl-File-Which
-      - perl-JSON
-      - perl-Test-Simple
     Ubuntu:
       - bison
       - flex
@@ -86,36 +83,6 @@ cluster_vars:
       - zlib1g-dev
       - software-properties-common
   
-  # The tpaexec "src" method doesn't seem to work at this time.
-  # We'll pull in the postgres source in hooks/post-deplay.yml instead.
-  #
-  # postgres_installation_method: src
-  # postgres_git_url: git://git.postgresql.org/git/postgresql.git
-  # postgres_git_ref: REL_13_3
-  # postgres_extra_configure_env:
-  #   CFLAGS: "-O0"
-  # postgres_configure_opts:
-  #   - --enable-tap-tests
-  #   - --enable-debug
-  #   - --with-openssl
-  #   - --config-cache
-  # postgres_make_command: "make -j4 -s"
-  # postgres_build_targets:
-  #   - "all"
-  #   - "-C contrib"
-  #   - "-C src/test/regress"
-  #   - "-C src/test/perl"          
-  #   - "-C src/test/isolation"
-  # postgres_install_targets:
-  #   - "install"
-  #   - "-C contrib install"
-  #   - "-C src/test/regress install-tests"
-  #   - "-C src/test/perl install"
-  #   - "-C src/test/isolation install"
-  # unix_socket_directories:
-  #   - /var/run/postgresql
-  #   - /tmp
-
 locations:
 - Name: first
 

@@ -1,26 +1,35 @@
 ---
+- name: Define default development information
+  set_fact:
+    dev_defaults:
+      base_dev_dir: "{{ postgres_home }}"
+      postgres_git_ref: "REL_{{ postgres_version }}_STABLE"
+      pglogical_git_ref: "master"
+      bdr_git_ref: "master"
+
 - name: Define development information
   set_fact:
-    user_info:
-      name: "Phillip Corning"
-      email: "phillip.corning@enterprisedb.com"
     postgres_dev:
       git_repo: "git://git.postgresql.org/git/postgresql.git"
-      git_ref: "REL_13_STABLE"
-      src_dir: "/opt/postgres/src/postgres"
+      git_ref: "{{ run_extra_vars.dev_branches.postgres | default(dev_defaults.postgres_git_ref, true) }}"
+      src_dir: "{{ dev_defaults.base_dev_dir }}/postgres"
     pglogical_dev:
       git_repo: "git@github.com:EnterpriseDB/pglogical.git"
-      git_ref: "REL3_7_STABLE"
-      src_dir: "/opt/postgres/src/pglogical"
+      git_ref: "{{ run_extra_vars.dev_branches.pglogical | default(dev_defaults.pglogical_git_ref, true) }}"
+      src_dir: "{{ dev_defaults.base_dev_dir }}/pglogical"
     bdr_dev:
       git_repo: "git@github.com:EnterpriseDB/bdr.git"
-      git_ref: "REL3_7_STABLE"
-      src_dir: "/opt/postgres/src/bdr"
-    git_tmp: "/opt/postgres/src_tmp"
+      git_ref: "{{ run_extra_vars.dev_branches.bdr | default(dev_defaults.bdr_git_ref, true) }}"
+      src_dir: "{{ dev_defaults.base_dev_dir }}/bdr"
+    git_tmp: "{{ dev_defaults.base_dev_dir }}_tmp"
     make_opt:
-      num_threads: 16
-    run_pg_installcheck: yes
+      num_threads: "{{ run_extra_vars.dev_config.make_num_threads | int }}"
+    run_pg_installcheck: "{{ run_extra_vars.dev_config.run_pg_installcheck | bool }}"
 
+- name: DEBUG
+  fail:
+    msg: DEBUG FAIL
+  when: false
 
 # ENSURE THE POSTGRES USER CAN BUILD/INSTALL/RUN POSTGRES
 - name: Ensure postgres directory ownership is set
@@ -50,44 +59,56 @@
     - /usr/share/doc
 
 
-# SETUP GITHUB ACCESS AND BRANCHES
-- name: Copy user's github SSH key files
-  copy:
-    src: '{{item}}'
-    dest: "/var/lib/postgresql/.ssh"
-    owner: postgres
-    group: postgres
-    mode: 0600
-  loop:
-    - "~/.ssh/id_ed25519"
-    - "~/.ssh/id_ed25519.pub"
+# SETUP GITHUB ACCESS AND CONFIG
+- name: Setup github access and configuration
+  block:
+    - name: Copy user's github SSH key files
+      copy:
+        src: '{{ item }}'
+        dest: "{{ postgres_home }}/.ssh"
+        owner: postgres
+        group: postgres
+        mode: 0600
+      loop:
+        - "~/.ssh/id_ed25519"
+        - "~/.ssh/id_ed25519.pub"
 
-- name: Add user's github SSH keys
-  authorized_key:
-    user: postgres
-    state: present
-    key: '{{ item }}'
-  with_file:
-    - "~/.ssh/id_ed25519.pub"
+    - name: Add user's github SSH keys
+      authorized_key:
+        user: postgres
+        state: present
+        key: '{{ item }}'
+      with_file:
+        - "~/.ssh/id_ed25519.pub"
 
-- name: Setup GIT user
-  shell: |
-    git config --global pull.rebase true
-    git config --global user.name "{{ user_info.name }}"
-    git config --global user.email "{{ user_info.email }}"
-    git config --global core.editor vim
-  args:
-    chdir: "{{ bdr_dev.src_dir }}"
-  become: yes
-  become_user: postgres
+    - name: Setup GIT config
+      shell: |
+        git config --global pull.rebase true
+        git config --global core.editor vim
+      args:
+        chdir: "{{ bdr_dev.src_dir }}"
+      become: yes
+      become_user: postgres
 
-- name: Create a tmp directory for GIT, to get around ansible GIT bug
-  file:
-    path: "{{ git_tmp }}"
-    state: directory
-    owner: postgres
-    group: postgres
-    recurse: yes
+    - name: Setup GIT user
+      shell: |
+        git config --global user.name "{{ git_user_info.name }}"
+        git config --global user.email "{{ git_user_info.email }}"
+      args:
+        chdir: "{{ bdr_dev.src_dir }}"
+      become: yes
+      become_user: postgres
+      when:     (git_user_info is defined)
+            and (git_user_info.name is defined) and (git_user_info.name|length > 0)
+            and (git_user_info.email is defined) and (git_user_info.email|length > 0)
+
+    - name: Create a tmp directory for GIT, to get around ansible GIT bug
+      file:
+        path: "{{ git_tmp }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        recurse: yes
 
 
 # POSTGRES
@@ -322,18 +343,17 @@
       ignore_errors: yes
       become: yes
       become_user: postgres
-      when: run_pg_installcheck
     - name: NOTE
       debug:
         msg: "Note: postgres installcheck errors above can be ignored"
-      when: run_pg_installcheck
+  when: run_pg_installcheck
 
 
 # PRE-CONFIGURE VSCODE
-- name: Pre-configure vscode
+- name: Pre-configure vscode workspace
   copy:
     src: "{{ cluster_dir }}/files/vscode_config/{{ item.local_path }}"
-    dest: "/opt/postgres/src/{{ item.remote_path }}"
+    dest: "{{ postgres_home }}/{{ item.remote_path }}"
     mode: '0777'
   loop:
     - { local_path: 'NODEx_workspace.code-workspace', remote_path: '{{ inventory_hostname|upper }}_workspace.code-workspace' }

@@ -30,7 +30,7 @@ JSON_CONFIG=$(cat <<EOF
         "dev_config": {
             "_COMMENT_": "MISC configuration values",
             "make_num_threads": 8,
-            "run_pg_installcheck": 0,
+            "run_pg_installcheck": 1,
         }
     }
 }

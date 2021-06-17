@@ -92,15 +92,13 @@
 
     - name: Setup GIT user
       shell: |
-        git config --global user.name "{{ git_user_info.name }}"
-        git config --global user.email "{{ git_user_info.email }}"
+        git config --global user.name "{{ run_extra_vars.user_info.name }}"
+        git config --global user.email "{{ run_extra_vars.user_info.email }}"
       args:
         chdir: "{{ bdr_dev.src_dir }}"
       become: yes
       become_user: postgres
-      when:     (git_user_info is defined)
-            and (git_user_info.name is defined) and (git_user_info.name|length > 0)
-            and (git_user_info.email is defined) and (git_user_info.email|length > 0)
+      when: ((run_extra_vars.user_info.name|length > 0) and (run_extra_vars.user_info.email|length > 0))
 
     - name: Create a tmp directory for GIT, to get around ansible GIT bug
       file:
@@ -246,6 +244,7 @@
         update: yes
   become: yes
   become_user: postgres
+  ignore_errors: yes
 
 - name: Rebuild/reinstall pglogical
   environment:
@@ -296,6 +295,7 @@
         update: yes
   become: yes
   become_user: postgres
+  ignore_errors: yes
 
 - name: Rebuild/reinstall bdr
   environment:
@@ -343,7 +343,7 @@
       ignore_errors: yes
       become: yes
       become_user: postgres
-    - name: NOTE
+    - name: postgres installcheck note
       debug:
         msg: "Note: postgres installcheck errors above can be ignored"
   when: run_pg_installcheck

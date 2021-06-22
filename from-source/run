@@ -19,7 +19,7 @@ JSON_CONFIG=$(cat <<EOF
             "_COMMENT_": "Development branch(es) to check out",
             "postgres": "",
             "pglogical": "",
-            "bdr": "dev/BDR-896",
+            "bdr": "",
         },
         "dev_config": {
             "_COMMENT_": "MISC configuration values",

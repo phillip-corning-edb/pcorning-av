@@ -12,13 +12,31 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "dependsOn": ["bdr-build", "bdr-install", "postgres-restart"],
+            "dependsOn": ["pglogical-build",
+                          "pglogical-install",
+                          "bdr-build",
+                          "bdr-install",
+                          "postgres-restart"],
             "dependsOrder": "sequence"
         },
+
         {
-            "label": "postgres-restart",
+            "label": "pglogical-build",
             "type": "shell",
-            "command": "su -l postgres -c 'pg_ctl restart'",
+            "command": "su -l postgres -c 'make -j --directory=/opt/postgres/src/pglogical'",
+            "group": "build"
+        },
+        {
+            "label": "pglogical-install",
+            "type": "shell",
+            "command": "su -l postgres -c 'make install --directory=/opt/postgres/src/pglogical'",
+            "group": "build"
+        },
+
+        {
+            "label": "bdr-build",
+            "type": "shell",
+            "command": "su -l postgres -c 'make -j1 --directory=/opt/postgres/src/bdr'",
             "group": "build"
         },
         {
@@ -27,10 +45,11 @@
             "command": "su -l postgres -c 'make install --directory=/opt/postgres/src/bdr'",
             "group": "build"
         },
+
         {
-            "label": "bdr-build",
+            "label": "postgres-restart",
             "type": "shell",
-            "command": "su -l postgres -c 'make --directory=/opt/postgres/src/bdr'",
+            "command": "su -l postgres -c 'pg_ctl restart'",
             "group": "build"
         },
     ],

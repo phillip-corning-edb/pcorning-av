@@ -26,10 +26,6 @@
       num_threads: "{{ run_extra_vars.dev_config.make_num_threads | int }}"
     run_pg_installcheck: "{{ run_extra_vars.dev_config.run_pg_installcheck | bool }}"
 
-- name: DEBUG
-  fail:
-    msg: DEBUG FAIL
-  when: false
 
 # ENSURE THE POSTGRES USER CAN BUILD/INSTALL/RUN POSTGRES
 - name: Ensure postgres directory ownership is set

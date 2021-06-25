@@ -82,7 +82,7 @@ cluster_vars:
       - xsltproc
       - zlib1g-dev
       - software-properties-common
-  
+
 locations:
 - Name: first
 

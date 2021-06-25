@@ -2,6 +2,7 @@
 - name: Define default development information
   set_fact:
     dev_defaults:
+      helper_dir: "{{ postgres_home }}/helper_scripts"
       base_dev_dir: "{{ postgres_home }}"
       postgres_git_ref: "REL_{{ postgres_version }}_STABLE"
       pglogical_git_ref: "master"
@@ -355,6 +356,35 @@
     - { local_path: 'NODEx_workspace.code-workspace', remote_path: '{{ inventory_hostname|upper }}_workspace.code-workspace' }
     - { local_path: 'launch.json', remote_path: '.vscode/' }
     - { local_path: 'tasks.json', remote_path: '.vscode/' }
+  when: true
+
+
+# ADD (BDR) HELPER SCRIPTS
+- name: Helper scripts
+  block:
+    - name: Add helper scripts
+      copy:
+        src: "{{ cluster_dir }}/files/helper_scripts/{{ item }}"
+        dest: "{{ dev_defaults.helper_dir }}/"
+        mode: 'a+x'
+      loop:
+        - "bdr_installcheck"
+        - "bdr_prove_installcheck"
+    - name: Setup helper scripts
+      replace:
+        path: "{{ dev_defaults.helper_dir }}/{{ item }}"
+        regexp: "REPLACE_WITH_BDR_SRC_DIR"
+        replace: "{{ bdr_dev.src_dir }}"
+      loop:
+        - "bdr_installcheck"
+        - "bdr_prove_installcheck"
+    - name: Add helper scripts to PATH
+      blockinfile:
+        path: "{{ postgres_home }}/.bashrc"
+        create: yes
+        block: |
+          export PATH=$PATH:{{ dev_defaults.helper_dir }}
+        state: present
   when: true
 
 

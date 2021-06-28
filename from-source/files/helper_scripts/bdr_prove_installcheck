@@ -1,0 +1,4 @@
+#!/bin/bash
+# BDR "make prove_installcheck" helper script
+
+make -C "REPLACE_WITH_BDR_SRC_DIR" PROVE_FLAGS="-w --verbose --parse --timer" prove_installcheck

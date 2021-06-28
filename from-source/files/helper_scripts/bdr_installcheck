@@ -1,0 +1,4 @@
+#!/bin/bash
+# BDR "make installcheck" helper script
+
+make -C "REPLACE_WITH_BDR_SRC_DIR" installcheck  "EXTRA_REGRESS_OPTS=--use-existing --dbname=bdrdb --port=5432 --host=node1 --user=postgres"

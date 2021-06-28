@@ -366,7 +366,7 @@
       copy:
         src: "{{ cluster_dir }}/files/helper_scripts/{{ item }}"
         dest: "{{ dev_defaults.helper_dir }}/"
-        mode: 'a+x'
+        mode: 'a+rwx'
       loop:
         - "bdr_installcheck"
         - "bdr_prove_installcheck"

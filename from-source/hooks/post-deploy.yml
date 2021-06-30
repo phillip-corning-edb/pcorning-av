@@ -1,12 +1,20 @@
 ---
-- name: Define default development information
+- name: Pull in GIT references from config.yml
+  set_fact:
+    dev_git_refs: "{{ dev_git_refs|default({}) | combine( {ifs.name: ifs.git_repository_ref} ) }}"
+  when: (ifs.name == "bdr3") or (ifs.name == "pglogical3")
+  with_items: "{{ install_from_source }}"
+  loop_control:
+    loop_var: ifs
+
+- name: Define development defaults
   set_fact:
     dev_defaults:
       helper_dir: "{{ postgres_home }}/helper_scripts"
       base_dev_dir: "{{ postgres_home }}"
       postgres_git_ref: "REL_{{ postgres_version }}_STABLE"
-      pglogical_git_ref: "master"
-      bdr_git_ref: "master"
+      pglogical_git_ref: "{{ dev_git_refs.pglogical3 }}"
+      bdr_git_ref: "{{ dev_git_refs.bdr3 }}"
 
 - name: Define development information
   set_fact:
@@ -14,6 +22,7 @@
       git_repo: "git://git.postgresql.org/git/postgresql.git"
       git_ref: "{{ run_extra_vars.dev_branches.postgres | default(dev_defaults.postgres_git_ref, true) }}"
       src_dir: "{{ dev_defaults.base_dev_dir }}/postgres"
+      data_dir: "{{ postgres_data_dir }}"
     pglogical_dev:
       git_repo: "git@github.com:EnterpriseDB/pglogical.git"
       git_ref: "{{ run_extra_vars.dev_branches.pglogical | default(dev_defaults.pglogical_git_ref, true) }}"
@@ -324,13 +333,28 @@
   become_user: postgres
 
 
-# RESTART POSTGRES
+# UPDATE pg_hba.conf
+- name: Update postgres config to allow all connections for installcheck
+  blockinfile:
+    path: "{{ postgres_dev.data_dir }}/pg_hba.conf"
+    create: yes
+    owner: postgres
+    group: postgres
+    insertbefore: BOF
+    block: |
+      host  all all 0.0.0.0/0 trust
+
+
+# RELOAD/RESTART POSTGRES (both seem to be required)
 - include_role: name=postgres/restart
   vars:
-    postgres_service_end_state: started
+    postgres_service_end_state: reloaded
+- include_role: name=postgres/restart
+  vars:
+    postgres_service_end_state: restarted
 
 
-# POSTGRES INSTALL CHECK
+# RUN POSTGRES INSTALLCHECK
 - name: Prepare postgres and DBs for installcheck tests
   block:
     - name: postgres run installcheck (creates regression database, ignore errors)
@@ -340,6 +364,7 @@
       ignore_errors: yes
       become: yes
       become_user: postgres
+
     - name: postgres installcheck note
       debug:
         msg: "Note: postgres installcheck errors above can be ignored"

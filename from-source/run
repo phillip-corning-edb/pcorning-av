@@ -57,8 +57,16 @@ export NO_DEPROVISION=1
 
 if [[ -z "${NO_RESET}" ]]; then
     echo "START OVER"
-    docker rm -f node1
-    docker rm -f node2
+
+    # Delete existing containers?
+    if [[ "$(docker ps -q -f name='node1')" || "$(docker ps -q -f name='node2')" ]]; then
+        read -p "Delete existing node containers? (y/n)? " CHOICE
+        case "$CHOICE" in
+            y|Y )
+                docker rm -f node1;
+                docker rm -f node2;
+        esac
+    fi
 
     # Provision
     tpaexec provision .
@@ -77,7 +85,7 @@ else
 fi
 
 echo ""
-echo "Attach to nodes with vscode or: ssh -F ssh_config code1"
+echo "Attach to nodes with vscode or: ssh -F ssh_config node1"
 echo ""
 
 exit

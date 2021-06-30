@@ -22,15 +22,22 @@ cluster_vars:
   extra_bashrc_lines:
     - export SRC="/opt/postgres/src"
     - echo "" && echo "SOURCE DIRECTORY - ${SRC}" && echo ""
+  postgres_users:
+  - username: some_superuser
+    generate_password: false
+    role_attrs:
+    - superuser
+  - username: some_nonsuperuser
+    generate_password: false
 
   tpa_2q_repositories:
     - products/pglogical3_7/release
     - products/bdr3_7/release
   preferred_python_version: python3
-  use_volatile_subscriptions: true
+  use_volatile_subscriptions: false
 
   # The tpaexec "src" method doesn't seem to work at this time.
-  # We'll pull in the postgres source in hooks/post-deplay.yml instead.
+  # We'll pull in the postgres source in hooks/post-deploy.yml instead.
   install_from_source:
   - name: pglogical3
     git_repository_url: git@github.com:EnterpriseDB/pglogical.git

@@ -1,24 +1,16 @@
 ---
 - name: Update postgres config for installcheck and query logging
   blockinfile:
-    path: /opt/postgres/data/conf.d/9999-override.conf
+    path: "{{ postgres_data_dir }}/conf.d/9999-override.conf"
     create: yes
     owner: postgres
     group: postgres
     block: |
-      bdr.node1_superuser_dsn = 'host=node1 port=5432 dbname=bdrdb user=postgres'
-      bdr.node2_superuser_dsn = 'host=node2 port=5432 dbname=bdrdb user=postgres'
+      bdr.node1_dsn = 'host=node1 dbname=bdrdb user=some_nonsuperuser'
+      bdr.node2_dsn = 'host=node2 dbname=bdrdb user=some_nonsuperuser'
+      bdr.node1_superuser_dsn = 'host=node1 port=5432 dbname=bdrdb user=some_superuser'
+      bdr.node2_superuser_dsn = 'host=node2 port=5432 dbname=bdrdb user=some_superuser'
       log_statement = 'all'
-
-- name: Update postgres config to allow all connections for installcheck
-  blockinfile:
-    path: /opt/postgres/data/pg_hba.conf
-    create: yes
-    owner: postgres
-    group: postgres
-    block: |
-      host    all all all trust
-      hostssl all all all trust
 
 - name: Update postgres directory ownership
   file:

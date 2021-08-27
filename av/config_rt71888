@@ -1,0 +1,16 @@
+#!/bin/bash
+
+tpaexec configure rt71888 --architecture BDR-Simple \
+    --num-instances 3 \
+    --hostnames-unsorted \
+    --hostnames-pattern "^[a-zA-Z0-9_]*$" \
+    --hostnames-from ./rt71888_hostnames.txt \
+    --2ndqpostgres \
+    --postgres-version 11 \
+    --bdr-package-version "3.6.25-1*" \
+    --2Q-repositories products/bdr3/release products/2ndqpostgres/release \
+    --platform docker \
+    --os-image tpa/ubuntu:20.04
+
+#    --postgres-version 11 \
+#    --postgres-package-version "11.11r2ndq1.6.25*" \

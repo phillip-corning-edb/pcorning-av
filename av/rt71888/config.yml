@@ -1,0 +1,43 @@
+---
+architecture: BDR-Simple
+cluster_name: rt71888
+cluster_tags: {}
+
+cluster_vars:
+  bdr_database: bdrdb
+  bdr_node_group: bdrgroup
+  extra_postgres_extensions:
+  - pglogical
+  postgres_coredump_filter: '0xff'
+  postgresql_flavour: 2q
+  preferred_python_version: python3
+
+  postgres_version: '11'
+  bdr_version: '3.6.25'
+
+  tpa_2q_repositories:
+  - products/2ndqpostgres/release
+  - products/bdr_enterprise_3_7/release
+  
+  use_volatile_subscriptions: true
+
+locations:
+- Name: first
+
+instance_defaults:
+  image: tpa/ubuntu:20.04
+  location: 0
+  platform: docker
+  role:
+  - primary
+  - bdr
+  vars:
+    ansible_user: root
+
+instances:
+- Name: prod01_db_ps03
+  node: 1
+- Name: prod01_db_ps04
+  node: 2
+- Name: prod01_db_ps01
+  node: 3
